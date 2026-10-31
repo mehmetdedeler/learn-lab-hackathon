@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "learn-lab",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "learn-lab", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}
