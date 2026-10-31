@@ -3,6 +3,15 @@
    ===================================================================== */
 const rr=()=>{ANIM=false;render()};
 const rec=(k,ok)=>{const v=S.stats[k]||(S.stats[k]=[0,0]);v[1]++;if(ok)v[0]++};
+const KIND_NAME={mc:'multiple choice',img:'picture questions',fill:'fill-in-the-blank',match:'matching',type:'typing',num:'number answers',multi:'multi-answer',slider:'slider',build:'ordering',listen:'listening',speak:'speaking',hot:'tap-the-part',teach:'teach-back',flash:'flashcards'};
+const LOCK_MS=350;
+/* log one graded answer: analytics + per-kind tally for the end-of-session recap */
+function graded(s,it,ok){
+  const ms=Math.max(0,Date.now()-(it.t0||s.start));
+  const v=s.kinds[it.k]||(s.kinds[it.k]=[0,0]);v[1]++;if(ok)v[0]++;
+  if(typeof track==='function'){try{track('answer',{kind:it.k,correct:!!ok,ms,conf:it.conf||null})}catch(e){}}}
+/* real taps arrive trusted; synthetic .click() (tests) skip the debounce */
+const locked=(s,e)=>!!(e&&e.isTrusted&&s.lockAt&&Date.now()-s.lockAt<LOCK_MS);
 const KIND_TITLE={mc:'Choose the answer',img:'Select the correct image',fill:'Complete the sentence',match:'Tap the matching pairs',type:'Type the answer',num:'Fill in the number',multi:'Answer all three!',slider:'Answer on the line',build:'Drag in pieces',listen:'Tap what you hear',speak:'Say it out loud',hot:'Tap the part',teach:'Teach Bruno'};
 
 function mkItem(d){
@@ -31,13 +40,13 @@ function buildSession(mode,arg){
   if(mode==='diag')items=C.map(c=>mkItem(c.pool[0]));
   else if(mode==='learn'){const c=arg;items=[{k:'explain',cid:c.id},...chooseItems(c,4),cardItem(c.id,c.cards[0])]}
   else if(mode==='revisit'){const c=arg;items=[...chooseItems(c,3),cardItem(c.id,c.cards[1]||c.cards[0])]}
-  else if(mode==='review'){let cs=dueCards();if(!cs.length)cs=Object.keys(S.srs).map(cardById).sort((a,b)=>retr(S.srs[a.id])-retr(S.srs[b.id])).slice(0,5);
+  else if(mode==='review'){let cs=dueCards();if(!cs.length)cs=Object.keys(S.srs).map(cardById).filter(Boolean).sort((a,b)=>retr(S.srs[a.id])-retr(S.srs[b.id])).slice(0,5);
     items=interleave(cs.slice(0,8).map(x=>cardItem(x.cid,x,true)))}
   else if(mode==='mistakes'){items=S.mistakes.slice(-6).map(id=>{const d=C.flatMap(c=>c.pool).find(p=>p.id===id);return d&&mkItem(d)}).filter(Boolean)}
   else if(mode==='mixed'){const pool=learned().flatMap(c=>shuf(c.pool).slice(0,2));items=interleave(shuf(pool).slice(0,6).map(mkItem))}
   else if(mode==='rapid'){const pool=learned().flatMap(c=>c.pool.filter(p=>p.k==='mc'||p.k==='img'));items=interleave(shuf(pool).concat(shuf(pool)).slice(0,30).map(mkItem))}
   else if(mode==='teach'){const pool=C.flatMap(c=>c.pool.filter(p=>p.k==='teach')).filter(p=>mastery(p.cid)>=1||true);items=shuf(pool).slice(0,2).map(mkItem)}
-  return{mode,cid:arg&&arg.id,items,i:0,miss:0,ok:0,combo:0,best:0,start:Date.now(),before:cov(),wrong:new Set(),timed:arg==='timed',left:60,score:0}}
+  return{mode,cid:arg&&arg.id,items,i:0,miss:0,ok:0,combo:0,best:0,start:Date.now(),before:cov(),wrong:new Set(),kinds:{},lockAt:0,timed:arg==='timed',left:60,score:0}}
 function startSess(mode,arg){
   const s=buildSession(mode,arg);
   if(!s.items.length){toast('Nothing to practise yet. Learn a marker first.');return}
@@ -65,6 +74,8 @@ function evaluate(it){switch(it.k){
   case 'speak':{const t=' '+norm(it.txt)+' ';const hit=it.keys.filter(k=>t.includes(norm(k))).length;return hit>=Math.ceil(it.keys.length*.6)}
   case 'teach':{const t=norm(it.txt);const hit=it.keys.filter(g=>g.some(w=>t.includes(w))).length;return hit>=it.need}
 }return false}
+function teachLocal(it){const t=norm(it.txt);const hits=it.keys.map(g=>g.some(w=>t.includes(w)));
+  const n=Math.max(1,it.need||it.keys.length);return{score:Math.min(1,hits.filter(Boolean).length/n),missing:it.keys.filter((g,i)=>!hits[i]).map(g=>g[0])}}
 function ready(it){switch(it.k){
   case 'mc':case 'img':case 'listen':case 'fill':case 'hot':return it.sel!==null;
   case 'type':return it.val.trim().length>0;case 'num':return it.val!=='';
@@ -83,7 +94,7 @@ const sureRow=it=>`<div class="sure"><span>How sure?</span>${[['guess','Guess'],
 function bodyFor(it,s){
   const lab=it.checked,mood=lab?(it.ok?'happy':'sad'):(s.mode==='rapid'?'idle':'idle');
   switch(it.k){
-  case 'explain':{const c=C.find(x=>x.id===it.cid);
+  case 'explain':{const c=C.find(x=>x.id===it.cid)||{name:'this marker',art:'',body:''};
     return `<div class="explain">${speakBlock(`Let's do <b>${c.name}</b>.`,'idle')}<div class="art">${artFor(c)}</div><h2>${c.name}</h2><div class="ebody">${c.body}</div><button class="listenbtn" data-act="sayExplain">${speakerSvg.replace(/#fff/g,'#1899D6')} Hear Bruno say it</button></div>`}
   case 'mc':return `${speakBlock(it.q,mood)}<div class="opts">${it.opts.map((o,i)=>{let c=it.sel===i?'sel':'';if(lab){c=o===it.a?'right':it.sel===i?'wrong':''}return `<button class="opt ${c}" data-act="sel" data-i="${i}" ${lab?'disabled':''}><span class="k">${i+1}</span>${o}</button>`}).join('')}</div>${s.mode==='diag'&&!lab?`<button class="skip" data-act="dk">I haven't learned this yet</button>`:''}`;
   case 'img':return `<div class="qtitle">${KIND_TITLE.img}</div>${speakBlock(it.q,mood)}<div class="imggrid">${it.opts.map((o,i)=>{let c=it.sel===i?'sel':'';if(lab){c=o.label===it.a?'right':it.sel===i?'wrong':''}return `<button class="imgopt ${c}" data-act="sel" data-i="${i}" ${lab?'disabled':''}><div class="pic">${OPT[o.art]}</div><b>${o.label}</b></button>`}).join('')}</div>`;
@@ -97,7 +108,7 @@ function bodyFor(it,s){
   case 'build':return `<div class="qtitle">${it.q}</div><div class="slots ${lab?(it.ok?'ok':'no'):''}">${it.seq.map((_,i)=>{const ti=it.placed[i];return ti===undefined?'<div class="slot0"></div>':`<button class="btile placed" data-act="unplace" data-i="${i}" ${lab?'disabled':''}>${it.tl.find(t=>t.i===ti).t}</button>`}).join('')}</div><div class="bank">${it.tl.map(t=>it.placed.includes(t.i)?'<div class="btile ghost">&nbsp;</div>':`<button class="btile" data-act="place" data-i="${t.i}" ${lab?'disabled':''}>${t.t}</button>`).join('')}</div>`;
   case 'speak':return `<div class="qtitle">${KIND_TITLE.speak}</div>${speakBlock(`<b>${it.say}</b>`,mood)}<div class="listenwrap">${iconBtn('mic',micSvg)}<div class="hear">${it.txt?'':'Tap to speak'}</div></div>${it.txt?`<div class="heard">“${esc(it.txt)}”</div>`:''}<input id="tin" class="tinput" placeholder="Or type it here" value="${esc(it.txt)}" autocomplete="off" ${lab?'disabled':''}><button class="skip" data-act="skipItem">Can't speak now</button>`;
   case 'hot':return `<div class="qtitle">${it.q}</div><div class="art" style="background:#fff">${cellArt(it.sel,lab)}</div><div class="subq" style="text-align:center">${it.sel?`<b>${it.sel}</b>`:'Tap a part of the cell'}</div>`;
-  case 'teach':return `<div class="qtitle">${KIND_TITLE.teach}</div>${speakBlock(it.q,lab?(it.ok?'happy':'think'):'think')}<textarea id="tin" class="tinput area ${lab?(it.ok?'ok':'no'):''}" placeholder="Explain it in your own words…" ${lab?'disabled':''}>${esc(it.txt)}</textarea>`;
+  case 'teach':return `<div class="qtitle">${KIND_TITLE.teach}</div>${speakBlock(it.grading?'Bruno is thinking…':it.q,lab?(it.ok?'happy':'think'):'think')}<textarea id="tin" class="tinput area ${lab?(it.ok?'ok':'no'):''}" placeholder="Explain it in your own words…" ${lab||it.grading?'disabled':''}>${esc(it.txt)}</textarea>`;
   case 'flash':return `<div class="qtitle" style="margin-bottom:6px">${it.rate?'Do you remember?':'Lock it in'}</div><div class="fscene"><div class="fcard ${it.flipped?'flipped':''}" id="fc" data-act="flip"><div class="face"><div class="kicker" style="position:absolute;top:16px">Term</div><div class="big">${it.f}</div><div class="hint">Tap to flip</div></div><div class="face back"><div class="kicker" style="position:absolute;top:16px;color:var(--sky-b)">Answer</div><div class="big" style="font-size:23px">${it.b}</div></div></div></div>`;
   }return ''}
 
@@ -106,11 +117,13 @@ const SELKINDS=['mc','img','listen','fill'];
 function footFor(it,s){
   if(it.k==='explain')return `<div class="foot"><button class="btn" data-act="cont">Got it</button></div>`;
   if(it.k==='flash')return flashFoot(it,s);
+  if(it.grading)return `<div class="foot"><button class="btn" disabled>Bruno is thinking…</button></div>`;
   if(it.checked){
     const good=['Nice!','Awesome!','Great job!','Spot on!','Perfect!'][s.i%5],run=s.combo>=3?`<div class="run">${s.combo} IN A ROW</div>`:'';
-    const sub=it.ok?'':(it.k==='match'?'':`<small>${it.k==='teach'?'Try: '+esc(answerText(it)):'Correct answer: '+esc(answerText(it))}</small>`);
+    let sub=it.ok?'':(it.k==='match'?'':`<small>${it.k==='teach'?'Try: '+esc(answerText(it)):'Correct answer: '+esc(answerText(it))}</small>`);
+    if(it.k==='teach'){if(it.fb)sub=`<small>${esc(it.fb)}</small>`+sub;if(it.almost&&it.missing&&it.missing.length)sub+=`<small>Almost! You could add: ${esc(it.missing.join(', '))}</small>`}
     const sure=(!it.ok&&it.conf==='certain')?`<small>You were certain, so this one is worth locking in.</small>`:'';
-    return `<div class="foot fb ${it.ok?'ok':'bad'}">${run}<div class="fbrow"><div class="fbico">${it.ok?tick:cross}</div><div><b>${it.ok?good:'Not quite'}</b>${sub}${sure}</div><button class="expl" data-act="explain" aria-label="Explain">${it.ok?'EXPLAIN MY ANSWER':'EXPLAIN MY MISTAKE'}</button></div><button class="btn ${it.ok?'green':'red'}" data-act="cont">${it.ok?'Continue':'Got it'}</button></div>`}
+    return `<div class="foot fb ${it.ok?'ok':'bad'}">${run}<div class="fbrow"><div class="fbico">${it.ok?tick:cross}</div><div><b>${it.ok?(it.almost?'Almost there!':good):'Not quite'}</b>${sub}${sure}</div><button class="expl" data-act="explain" aria-label="Explain">${it.ok?'EXPLAIN MY ANSWER':'EXPLAIN MY MISTAKE'}</button></div><button class="btn ${it.ok?'green':'red'}" data-act="cont">${it.ok?'Continue':'Got it'}</button></div>`}
   if(it.k==='match')return `<div class="foot"><button class="btn" disabled>Check</button></div>`;
   const chk=`<button class="btn" id="chk" data-act="check" ${ready(it)?'':'disabled'}>Check</button>`;
   if(it.k==='num')return `<div class="foot tight">${chk}</div>${keypad()}`;
@@ -122,7 +135,7 @@ function flashFoot(it,s){
   return `<div class="foot"><div class="row"><button class="btn warn" data-act="rate" data-r="0">Still fuzzy</button><button class="btn green" data-act="rate" data-r="2">Got it</button></div></div>`}
 
 VIEWS.lesson=function(){
-  const s=S.sess,it=it_(),pct=Math.min(100,Math.round(s.i/s.items.length*100)),hot=s.combo>=3;
+  const s=S.sess,it=it_();if(!it.t0)it.t0=Date.now();const pct=Math.min(100,Math.round(s.i/s.items.length*100)),hot=s.combo>=3;
   const right=s.mode==='rapid'&&s.timed?`<span class="chip clock" id="clock">${fmtT(s.left)}</span>`:`<span class="chip xp">${bolt}${S.xp}</span>`;
   return `<div class="screen enter">${status()}<div class="topbar"><button class="x" data-act="quit" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button><div class="prog ${hot?'hot':''}"><i style="width:${pct}%"></i></div>${right}</div>
   ${s.combo>=2?`<div class="combo ${hot?'hot':''}">COMBO x${s.combo}</div>`:'<div class="combo none"></div>'}
@@ -133,11 +146,26 @@ function selectOpt(it,idx,s){it.sel=idx;
   if(s.mode==='rapid'){doCheck();return}
   SFX.tap();$$('.opt,.imgopt').forEach((o,i)=>o.classList.toggle('sel',i===it.sel));const c=$('#chk');if(c)c.disabled=false}
 function doCheck(){
-  const s=S.sess,it=it_();if(!it||it.checked||!ready(it))return;
-  it.checked=true;it.ok=evaluate(it);rec(it.k,it.ok);
+  const s=S.sess,it=it_();if(!it||it.checked||it.grading||!ready(it))return;
+  if(it.k==='teach'&&typeof API!=='undefined'&&API&&typeof API.gradeAnswer==='function'){
+    it.grading=true;setMood('think');rr();
+    let p;try{p=Promise.resolve(API.gradeAnswer({question:it.q,rubric:{keywords:it.keys,need:it.need,model_answer:it.model},answer:it.txt}))}catch(e){p=Promise.reject(e)}
+    p.then(r=>{if(!r||typeof r.score!=='number'||isNaN(r.score))throw new Error('bad grade');return r})
+     .catch(()=>{const l=teachLocal(it);return{score:l.score,local:true}})
+     .then(r=>{if(S.sess!==s||it_()!==it||it.checked)return;it.grading=false;
+       const l=teachLocal(it);it.fb=r.feedback||'';it.missing=l.missing;
+       it.almost=r.score>=.4&&r.score<.7;finishCheck(s,it,r.score>=.4)});
+    return}
+  if(it.k==='teach'){const l=teachLocal(it);it.missing=l.missing;it.almost=l.score>=.4&&l.score<.7;finishCheck(s,it,l.score>=.4);return}
+  finishCheck(s,it,evaluate(it))}
+function finishCheck(s,it,ok){
+  it.checked=true;it.ok=ok;rec(it.k,it.ok);s.lockAt=Date.now();graded(s,it,it.ok);
   if(it.conf){const g=S.conf[it.conf==='certain'?'sure':'unsure'];g[1]++;if(it.ok)g[0]++}
+  if(s.mode==='diag'&&it.ok&&!it.probe){const c=C.find(x=>x.id===it.cid);
+    if(c){const pr=c.pool.filter(p=>p.id!==it.id&&['mc','img','fill','type','num','multi'].includes(p.k)),pk=pr.find(p=>p.k!==it.k)||pr[0];
+      if(pk){const n=mkItem(pk);n.probe=true;s.items.push(n)}}}
   if(it.ok){s.ok++;s.combo++;s.best=Math.max(s.best,s.combo);S.quests.bestCombo=Math.max(S.quests.bestCombo,s.combo);SFX.ok();buzz(20);if(s.mode==='rapid')s.score++}
-  else{s.miss++;s.combo=0;s.wrong.add(it.cid);SFX.bad();buzz([40,40,40]);
+  else{s.miss++;s.combo=0;if(s.mode==='diag'&&it.probe){(s.pmiss=s.pmiss||new Set()).add(it.cid)}else s.wrong.add(it.cid);SFX.bad();buzz([40,40,40]);
     if(s.mode!=='diag'&&s.mode!=='rapid'&&it.id){S.mistakes=S.mistakes.filter(x=>x!==it.id);S.mistakes.push(it.id);S.mistakes=S.mistakes.slice(-12)}
     if(s.mode!=='diag'&&s.mode!=='rapid'&&!it.rq&&it.id){const d=C.flatMap(c=>c.pool).find(p=>p.id===it.id);if(d){const n=mkItem(d);n.rq=true;s.items.push(n)}}}
   if(s.mode==='rapid'){rr();const sx=s;setTimeout(()=>{if(S.sess===sx&&S.screen==='lesson'&&sx.items[sx.i]===it)advance()},420);return}
@@ -149,34 +177,35 @@ ACT.sel=el=>{const it=it_();if(it.checked)return;
 ACT.unfill=()=>{const it=it_();if(it.k==='fill'&&!it.checked&&it.sel){it.sel=null;rr()}};
 ACT.conf=el=>{const it=it_();it.conf=it.conf===el.dataset.v?null:el.dataset.v;$$('.sc').forEach(b=>b.classList.toggle('on',b.dataset.v===it.conf))};
 ACT.check=()=>doCheck();
-ACT.cont=()=>{if(it_().k==='explain')hush();advance()};
-ACT.dk=()=>{const s=S.sess,it=it_();it.checked=true;it.ok=false;s.wrong.add(it.cid);rec(it.k,false);s.miss++;advance()};
+ACT.cont=(el,e)=>{const s=S.sess,it=s&&it_();if(!it||it.grading)return;if(it.k==='explain')hush();else if(locked(s,e))return;advance()};
+ACT.dk=()=>{const s=S.sess,it=it_();if(!it||it.checked)return;it.checked=true;graded(s,it,false);it.ok=false;s.wrong.add(it.cid);rec(it.k,false);s.miss++;advance()};
 ACT.skipItem=()=>{const it=it_();it.skipped=true;toast('Skipped. No penalty.');advance()};
 ACT.hear=()=>{const it=it_();say(it.say,{force:true});SFX.tap()};
-ACT.sayExplain=()=>{const it=it_(),c=C.find(x=>x.id===it.cid);say(c.name+'. '+c.body,{force:true})};
-ACT.mic=()=>{const it=it_();toast('Listening…');setMood('listen');
-  listenOnce(t=>{it.txt=t;setMood('idle');rr()},()=>{setMood('idle');toast('Mic unavailable. Type it instead.');const i=$('#tin');i&&i.focus()})};
+ACT.sayExplain=()=>{const it=it_(),c=C.find(x=>x.id===it.cid);if(!c)return;say(c.name+'. '+c.body,{force:true})};
+ACT.mic=()=>{const it=it_();if(it.checked||it.micBusy)return;it.micBusy=true;toast('Listening…');setMood('listen');
+  listenOnce(t=>{it.micBusy=false;it.txt=t;setMood('idle');if(S.sess&&it_()===it)rr()},()=>{it.micBusy=false;setMood('idle');toast('Mic unavailable. Type it instead.');const i=$('#tin');i&&i.focus()})};
 ACT.hot=el=>{const it=it_();if(it.checked)return;it.sel=el.dataset.spot;SFX.tap();rr()};
 ACT.key=el=>{const it=it_();if(it.checked)return;const v=el.dataset.v;SFX.tap();
   const tgt=it.k==='multi'?it.rows[it.focus]:it;let val=tgt.val;
+  if(it.k==='multi'&&it.repl===it.focus){it.repl=null;if(v!=='del')val=''}
   if(v==='del')val=val.slice(0,-1);else if(val.length<4)val+=v;tgt.val=val;
-  if(it.k==='multi'&&v!=='del'&&val.length>=String(tgt.a).length&&it.focus<it.rows.length-1)it.focus++;
+  if(it.k==='multi'&&v!=='del'&&val.length>=String(tgt.a).length&&it.focus<it.rows.length-1){it.focus++;it.repl=it.rows[it.focus].val!==''?it.focus:null}
   rr()};
-ACT.focusRow=el=>{const it=it_();if(!it.checked){it.focus=+el.dataset.i;rr()}};
+ACT.focusRow=el=>{const it=it_();if(!it.checked){it.focus=+el.dataset.i;it.repl=it.rows[it.focus].val!==''?it.focus:null;rr()}};
 ACT.place=el=>{const it=it_();if(it.checked||it.placed.length>=it.seq.length)return;it.placed.push(+el.dataset.i);SFX.tap();rr()};
 ACT.unplace=el=>{const it=it_();if(it.checked)return;it.placed.splice(+el.dataset.i,1);rr()};
 ACT.mL=ACT.mR=null;
 function matchTap(side,el){const it=it_(),s=S.sess;if(it.checked)return;const i=+el.dataset.i;
   if(side==='L'?it.dn.includes(it.left[i]):it.dn.some(l=>it.pairs.find(p=>p[0]===l)[1]===it.right[i]))return;
   if(side==='L')it.pl=it.pl===i?null:i;else it.pr=it.pr===i?null:i;SFX.tap();
-  if(it.pl!==null&&it.pr!==null){const l=it.left[it.pl],r=it.right[it.pr],good=it.pairs.some(p=>p[0]===l&&p[1]===r);rec('match',good);
+  if(it.pl!==null&&it.pr!==null){const l=it.left[it.pl],r=it.right[it.pr],good=it.pairs.some(p=>p[0]===l&&p[1]===r);rec('match',good);graded(s,it,good);
     if(good){it.dn.push(l);it.pl=it.pr=null;SFX.ok();if(it.dn.length===it.pairs.length){it.checked=true;it.ok=true;s.ok++;s.combo++;s.best=Math.max(s.best,s.combo);S.quests.bestCombo=Math.max(S.quests.bestCombo,s.combo)}}
     else{s.miss++;s.combo=0;s.wrong.add(it.cid);SFX.bad();it.bad={l:it.pl,r:it.pr};it.pl=it.pr=null;rr();setTimeout(()=>{it.bad=null;if(S.sess===s&&it_()===it&&S.screen==='lesson')rr()},420);return}}
   rr()}
 ACT.mL=el=>matchTap('L',el);ACT.mR=el=>matchTap('R',el);
 ACT.flip=()=>{const it=it_();if(it.flipped)return;it.flipped=true;$('#fc').classList.add('flipped');$('#foot').innerHTML=flashFoot(it,S.sess);SFX.tap()};
 ACT.flipbtn=ACT.flip;
-ACT.rate=el=>{const s=S.sess,it=it_(),r=+el.dataset.r;it.r=r;rec('flash',r>0);
+ACT.rate=el=>{const s=S.sess,it=it_(),r=+el.dataset.r;if(it.rated)return;it.rated=true;it.r=r;rec('flash',r>0);graded(s,it,r>0);
   if(it.rate){srsReview(it.id,r);S.quests.review++}
   if(r>0){s.ok++;s.combo++;s.best=Math.max(s.best,s.combo);S.quests.bestCombo=Math.max(S.quests.bestCombo,s.combo)}else{s.miss++;s.combo=0;s.wrong.add(it.cid)}
   advance()};
@@ -188,7 +217,11 @@ function finish(){
   clearInterval(TICK);const s=S.sess;if(!s||s.fin)return;s.fin=true;const secs=Math.max(1,Math.round((Date.now()-s.start)/1000));
   const acc=s.ok+s.miss?Math.round(s.ok/(s.ok+s.miss)*100):100;let gain=0,streakNew=false;
   s.secs=secs;s.acc=acc;
-  if(s.mode==='diag'){C.forEach(c=>{const w=s.wrong.has(c.id);S.mastery[c.id]=w?0:2;S.knew[c.id]=!w;if(!w)enrollCards(c.id)});S.started=true}
+  const ks=Object.entries(s.kinds).filter(([k,v])=>v[1]>0).map(([k,v])=>({k,acc:v[0]/v[1],n:v[1]})).sort((a,b)=>b.acc-a.acc||b.n-a.n);
+  s.recap='';if(ks.length){const b=ks[0],w=ks[ks.length-1],nm=k=>KIND_NAME[k]||k;
+    s.recap=ks.length===1||b.acc===w.acc?(b.acc===1?'Perfect on '+nm(b.k)+' today.':'Mostly '+nm(b.k)+' today.'):'Strongest: '+nm(b.k)+' ('+Math.round(b.acc*100)+'%). Needs work: '+nm(w.k)+' ('+Math.round(w.acc*100)+'%).'}
+  if(typeof track==='function'){try{track('session_end',{mode:s.mode,acc})}catch(e){}}
+  if(s.mode==='diag'){C.forEach(c=>{const w=s.wrong.has(c.id),p=!w&&s.pmiss&&s.pmiss.has(c.id);S.mastery[c.id]=w?0:p?1:2;S.knew[c.id]=!w&&!p;if(!w)enrollCards(c.id)});S.started=true}
   else if(s.mode==='learn'||s.mode==='revisit'){
     S.mastery[s.cid]=Math.max(mastery(s.cid),s.miss===0?2:1);enrollCards(s.cid);gain=addXp(10+s.ok*2+(s.miss===0?5:0));S.doneToday++;streakNew=touchStreak();
     unlock('first');if(s.miss===0)unlock('perfect')}

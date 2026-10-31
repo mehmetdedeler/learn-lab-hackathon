@@ -26,15 +26,15 @@ Everything is made live by an LLM: the topics, the questions, the explanations a
 
 | Step | What you do | What you say |
 |---|---|---|
-| 1 | Tap **Get started**, type your name. | "Bruno is a learning app with a bear tutor." |
-| 2 | Type a topic, for example **How a rainbow forms**, or ask the audience for one. | "Any topic works. Nothing is prepared." |
-| 3 | Pick a level, a daily goal, a streak, then **Don't Allow**. | "This is the onboarding from our design." |
-| 4 | "Give me a sec…" runs (about 25 seconds). | "One Claude call is writing 4 concepts, 16 questions, explanations and flashcards right now." |
-| 5 | The **Q&A** starts. Answer one question, then tap **Explain my answer**. | "Bruno explains the answer with a real voice from ElevenLabs." |
-| 6 | Answer the rest, or tap "I haven't learned this yet". | "While you answer, a second Claude call draws an interactive visual and puts it in a Daytona sandbox." |
-| 7 | Tap **Show my path**. The **Explore** screen shows the visual. Tap its buttons or slider. | "This page was written by Claude seconds ago, and it runs from our Daytona sandbox." |
-| 8 | Type a change, for example **Show the 7 colors coming out**, and tap **Send** (about 20 seconds). | "You can talk to the visual. Bruno redraws it." |
-| 9 | Tap **Continue**. Show the path and the coverage bar. Open a lesson. | "Bruno skips what you know. The bar ends at 100%, so you know when you are done." |
+| 1 | Tap **Get started**. Type a topic, for example **How volcanoes erupt**, or ask the audience for one. | "Any topic works. Nothing is prepared." |
+| 2 | Pick **I know a little**. | "Bruno will check what I already know." |
+| 3 | "Give me a sec…" runs (about 30 seconds). | "One Claude call is writing 4 concepts, 16 questions, explanations and flashcards right now." |
+| 4 | The **placement quiz** starts. Answer one question right. | "A right answer gets a second check question, so a lucky guess never counts." |
+| 5 | Finish the quiz. The **map reveal** shows what you know and what is left. | "Bruno skips what I know. Finish the list and you are at 100%." |
+| 6 | Type a name, pick a goal and a streak, then **Don't Allow**. | "The account questions come after the payoff." |
+| 7 | On the path, tap the **play** node (Interactive visual). Use its slider or buttons. | "While I answered, Claude wrote this page and put it in my own Daytona sandbox. It runs isolated there." |
+| 8 | Type a change, for example **Make the gas pressure higher**, and tap **Send** (about 20 seconds). | "I can talk to the visual. Bruno redraws it." |
+| 9 | Tap the **Practice** tab → **Teach Bruno**. Explain the idea in your own words, then **Check**. | "Claude grades the meaning, not the exact words, and Bruno answers with an ElevenLabs voice." |
 
 **Closing line:** "Every topic, question and visual is generated live. Daytona runs the AI-made visuals safely, one small sandbox per learner, and ElevenLabs gives Bruno his voice."
 

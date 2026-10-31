@@ -2,7 +2,7 @@
 
 A student types a topic (or uploads lecture slides). Claude builds an interactive, visual lesson, and the page shows it live.
 
-Read `../HACKATHON_GUIDE.md` for every step.
+Read `../README.md` for the overview and `../HACKATHON_GUIDE.md` for every setup step.
 
 Quick start (needs only a Claude key):
 

@@ -1,0 +1,22 @@
+{
+  "version": "0.1",
+  "type": "container",
+  "meta": { "trigger": "dashboard" },
+  "ops": [
+    {
+      "type": "container/run",
+      "id": "whisper",
+      "args": {
+        "image": "docker.io/onerahmet/openai-whisper-asr-webservice:latest-gpu",
+        "gpu": true,
+        "env": { "ASR_ENGINE": "faster_whisper", "ASR_MODEL": "small" },
+        "expose": [
+          {
+            "port": 9000,
+            "health_checks": [{ "type": "http", "path": "/docs", "method": "GET", "expected_status": 200, "continuous": true }]
+          }
+        ]
+      }
+    }
+  ]
+}
