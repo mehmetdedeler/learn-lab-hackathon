@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 
 type ChatTurn = { role: "user" | "assistant"; text: string };
 
+const SANDBOX_KEY = "learn-lab-sandbox"; // where the browser remembers its sandbox id
+
 const EXAMPLES = ["Cell division", "Photosynthesis", "Pythagorean theorem", "How a lens bends light"];
 
 export default function Home() {
@@ -17,17 +19,28 @@ export default function Home() {
   const [local, setLocal] = useState(false);
 
   // 1. When the page opens, start a sandbox (only once, even when React runs effects twice in dev mode).
+  //    The browser remembers its sandbox, so a reload uses the same one again.
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    fetch("/api/session", { method: "POST" })
+    let previous: string | null = null;
+    try {
+      previous = localStorage.getItem(SANDBOX_KEY);
+    } catch {}
+    fetch("/api/session", { method: "POST", body: JSON.stringify({ sandboxId: previous }) })
       .then((r) => r.json())
       .then((s) => {
         if (s.error) return setError(`Could not start the sandbox. ${s.error}`);
+        try {
+          localStorage.setItem(SANDBOX_KEY, s.sandboxId);
+        } catch {}
         setSandboxId(s.sandboxId);
         setUrl(s.url);
         setLocal(!!s.local);
+        if (s.reused) {
+          setChat([{ role: "assistant", text: "Welcome back. Your last lesson is on the right. Ask for a change, or type a new topic." }]);
+        }
         setBusy(false);
       });
   }, []);

@@ -22,7 +22,7 @@ Start the app:
 npm run dev
 ```
 
-Then open http://localhost:3000 in your browser.
+Then open http://localhost:3737 in your browser.
 
 1. Wait until the right side says "Ask for a topic". The first start takes about 1 minute, because it installs the lesson packages one time.
 2. Click a topic, for example **Cell division**. Or type your own topic and press Enter.
@@ -33,7 +33,7 @@ To stop the app, click the Terminal window and press **Control + C**.
 
 ### What "Local test mode" means
 
-The page shows a yellow **Local test mode** badge. It means: there is no Daytona key, so the lesson runs on your laptop at http://localhost:5173 instead of in a cloud sandbox.
+The page shows a yellow **Local test mode** badge. It means: there is no Daytona key, so the lesson runs on your laptop at http://localhost:5737 instead of in a cloud sandbox.
 
 This is safe for testing, because in this mode Claude can only write lesson files. It cannot run any command on your laptop.
 
@@ -141,7 +141,7 @@ There are three places:
 | `lib/topics.ts` | Claude reads a PDF and returns topics with a visual idea for each. |
 | `lib/config.ts` | Two names: the app folder in the sandbox and the snapshot name. |
 | `scripts/hello-sandbox.mts` | A first test: makes a sandbox, says hello, deletes it. |
-| `scripts/make-template.mts` | Builds the snapshot `learn-template` from the `template/` folder. |
+| `scripts/make-template.mts` | Builds the snapshot `learn-lab-template` from the `template/` folder. |
 | `template/` | The starter lesson app that goes into every sandbox. |
 | `template/src/kit.jsx` | The **UI kit**: polished building blocks for every lesson. |
 | `template/src/main.jsx` | Catches crashes and reports them to your page. |
@@ -269,11 +269,11 @@ This takes a few minutes. The script does five things:
 2. It uploads the `template/` folder (the lesson app and the UI kit).
 3. It runs `npm install` inside the sandbox.
 4. It runs a test build.
-5. It saves everything as the snapshot `learn-template`, and then deletes the setup sandbox.
+5. It saves everything as the snapshot `learn-lab-template`, and then deletes the setup sandbox.
 
 You do this **one time**. Do it again only after you change something in `template/`. Example: you make the kit's buttons bigger, then you run the script again.
 
-Done when: you see `Done. New sandboxes can now start from 'learn-template'.` You can also see the snapshot in the dashboard under **Snapshots**.
+Done when: you see `Done. New sandboxes can now start from 'learn-lab-template'.` You can also see the snapshot in the dashboard under **Snapshots**.
 
 If the Node version that it prints is lower than 20.19, Vite cannot run. See "Node is too old" in section 11.
 
@@ -283,7 +283,7 @@ If the Node version that it prints is lower than 20.19, Vite cannot run. See "No
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open http://localhost:3737 in your browser.
 
 1. The right side says "Starting your sandbox…" for about 10-30 seconds.
 2. Then the right side shows "Ask for a topic".
@@ -299,7 +299,8 @@ Done when: you see a lesson with tabs, a moving visual and a quiz.
 
 - **Auto-stop.** A sandbox goes to sleep after 30 minutes without activity (we set this in `lib/sandbox.ts`). The running Vite server does not count as activity. When a sleeping sandbox gets a new message, the code wakes it and starts Vite again.
 - **Auto-delete.** A sandbox is deleted 60 minutes after it stops. This keeps your credits safe.
-- **Limits.** A new account can run about 10 vCPU (virtual processors) at the same time. Each page load starts a new sandbox. Therefore, if you refresh the page many times, you can hit the limit. Delete old sandboxes in the dashboard (**Sandboxes**), or use the CLI (section 11).
+- **Limits.** Your Daytona account allows **10 GB of memory** for running sandboxes and **30 GB of disk** for all sandboxes, stopped ones too. Each Learn Lab sandbox is small: 1 vCPU, 2 GB memory, 5 GB disk. Your browser remembers its sandbox, so a page reload uses the same sandbox again and shows "Welcome back". Other browsers (or a private window) get their own sandbox. If you still hit a limit, stop or delete old sandboxes in the dashboard (**Sandboxes**), or use the CLI (section 11).
+- **Other apps on the same account.** All apps that use your Daytona key share these limits. Learn Lab stays separate: its sandboxes have the label `app=learn-lab`, it only stops or deletes sandboxes with that label, and on your laptop it uses its own ports (3737 and 5737). For fully separate limits, make a second Daytona organization (the **Personal** menu at the top left of the dashboard) with its own API key and credits, and use that key for one of the apps.
 - **Public preview.** We use `public: true`, so anyone with the preview link can see the lesson. That is fine for a hackathon.
 - **Price.** About $0.05 per vCPU-hour and $0.016 per GB of memory per hour, billed per second. A stopped sandbox pays only for its disk.
 
@@ -488,10 +489,12 @@ One risk: building a lesson takes 1-3 minutes. Free hosting plans may stop long 
 
 | What you see | Why | Fix |
 |---|---|---|
-| Right side stays on "Starting your sandbox…" for more than 2 minutes (local test mode) | Port 3000 or 5173 is used by another program | Close other Terminal windows that run `npm run dev`, then start again. |
+| Right side stays on "Starting your sandbox…" for more than 2 minutes (local test mode) | Port 3737 or 5737 is used by another program | Close other Terminal windows that run `npm run dev`, then start again. |
 | "Could not start the sandbox… credentials not found" | No Daytona key | Put `DAYTONA_API_KEY` in `.env.local`, then restart `npm run dev`. |
-| "Snapshot learn-template not found" | Step 5 was not done | Run `make-template.mts`. |
-| Error about quota or resources | Too many sandboxes are running | Delete old sandboxes in the dashboard. |
+| "Snapshot learn-lab-template not found" | Step 5 was not done | Run `make-template.mts`. |
+| "Total memory limit exceeded. Maximum allowed: 10GiB" | Too many sandboxes are running, from Learn Lab and your other apps together. | In the Daytona dashboard, open **Sandboxes** and stop the ones you do not need. Then reload the page. |
+| "Total disk limit exceeded. Maximum allowed: 30GiB" | Stopped sandboxes still use disk. | In the dashboard, **delete** sandboxes you do not need (stopping is not enough). |
+| "DaytonaRateLimitError: Too Many Requests" | Too many Daytona API calls in a short time | Wait 1 minute, then reload the page. |
 | Iframe shows a Daytona "Preview URL Warning" page | Daytona's first-visit warning, once per new sandbox | Click **I Understand, Continue** once. |
 | Iframe is blank, and your page shows "The lesson crashed" | A mistake in the lesson | Click **Fix it**. |
 | "Sorry, that change did not work" | 3 fixes failed | The old version is back. Ask again in other words. |
