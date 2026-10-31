@@ -106,6 +106,11 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+              {url && !local && (
+                <p className="mt-4 text-xs text-slate-400">
+                  If the right side shows a Daytona warning, click “I Understand, Continue” once.
+                </p>
+              )}
             </div>
           )}
           {chat.map((m, i) => (

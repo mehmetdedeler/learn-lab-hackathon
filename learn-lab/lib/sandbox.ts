@@ -3,7 +3,8 @@ import { APP, SNAPSHOT } from "./config";
 import { localBox, startLocal } from "./local-box";
 
 // No Daytona key? Then use the local test mode (see lib/local-box.ts).
-const LOCAL_MODE = !process.env.DAYTONA_API_KEY;
+// Checked on every new session, so adding the key to .env.local works without a restart.
+const localMode = () => !process.env.DAYTONA_API_KEY;
 
 let client: Daytona | undefined;
 // Created on first use (not at import), so "next build" also works without keys.
@@ -26,7 +27,7 @@ async function startDevServer(sandbox: Sandbox) {
 
 // A new sandbox for a new student session.
 export async function createSession() {
-  if (LOCAL_MODE) return startLocal();
+  if (localMode()) return startLocal();
   const sandbox = await daytona().create({
     snapshot: SNAPSHOT,
     public: true,           // the iframe can show the preview without a token

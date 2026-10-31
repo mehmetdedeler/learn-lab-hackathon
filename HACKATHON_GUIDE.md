@@ -2,7 +2,7 @@
 
 A student types a topic. Claude builds a small interactive lesson. The lesson runs in a Daytona sandbox, and your page shows it live. The student asks for changes, and Claude edits the same lesson.
 
-The starter project is ready in the `learn-lab/` folder. I tested the Claude part live with your key. I did not test the Daytona and Nosana parts, because I do not have keys for them. Section 12 lists exactly what is tested and what is not.
+The starter project is ready in the `learn-lab/` folder. I tested the Claude part and the Daytona part live with your keys. I did not test the Nosana part, because there is no Nosana key yet. Section 12 lists exactly what is tested and what is not.
 
 ---
 
@@ -37,7 +37,9 @@ The page shows a yellow **Local test mode** badge. It means: there is no Daytona
 
 This is safe for testing, because in this mode Claude can only write lesson files. It cannot run any command on your laptop.
 
-When you get a Daytona key, put it in `learn-lab/.env.local` after `DAYTONA_API_KEY=`. Then stop the app and start it again. Now every student gets a cloud sandbox, and the badge goes away. (Do section 6, steps 4 and 5 first.)
+When you get a Daytona key, put it in `learn-lab/.env.local` after `DAYTONA_API_KEY=`. Then reload the page. Now every student gets a cloud sandbox, and the badge goes away. (Do section 6, steps 4 and 5 first.)
+
+**On this Mac this is already done:** I put your Daytona key into `learn-lab/.env.local` and built the snapshot. So your app now runs in **cloud mode**. To go back to local test mode, delete the text after `DAYTONA_API_KEY=` and reload the page.
 
 ### On another computer (from GitHub)
 
@@ -243,6 +245,8 @@ Done when: the command ends with no red `ERR!` lines.
 
 Done when: `.env.local` has two lines, `ANTHROPIC_API_KEY=...` and `DAYTONA_API_KEY=...`.
 
+You do **not** need the dashboard's **Create Sandbox** button. The app creates a sandbox by itself for each student, through the API key. Use the dashboard only to see your sandboxes and snapshots, to delete old sandboxes, and to check your credits (**Wallet** and **Spending**).
+
 ### Step 4: Your first sandbox
 
 ```bash
@@ -289,7 +293,7 @@ Open http://localhost:3000 in your browser.
 
 Done when: you see a lesson with tabs, a moving visual and a quiz.
 
-**Check this one time:** Daytona sometimes shows a warning page the first time a browser opens a preview link. If you see it inside the iframe, click through it once. If it blocks the iframe, tell me, and we switch to Daytona's signed preview links.
+**The Daytona warning page (tested):** each new sandbox shows a "Preview URL Warning" page on the right the first time. Click **I Understand, Continue** once. After that, the lesson shows, and the warning does not come back for that sandbox, not even after a new lesson. Daytona's signed links show the same warning, so they do not help. Only a paid Daytona tier or your own proxy removes it.
 
 ### Good to know about Daytona
 
@@ -488,7 +492,7 @@ One risk: building a lesson takes 1-3 minutes. Free hosting plans may stop long 
 | "Could not start the sandbox… credentials not found" | No Daytona key | Put `DAYTONA_API_KEY` in `.env.local`, then restart `npm run dev`. |
 | "Snapshot learn-template not found" | Step 5 was not done | Run `make-template.mts`. |
 | Error about quota or resources | Too many sandboxes are running | Delete old sandboxes in the dashboard. |
-| Iframe shows a Daytona warning page | Daytona's first-visit warning | Click through once. If it blocks, ask to switch to signed links. |
+| Iframe shows a Daytona "Preview URL Warning" page | Daytona's first-visit warning, once per new sandbox | Click **I Understand, Continue** once. |
 | Iframe is blank, and your page shows "The lesson crashed" | A mistake in the lesson | Click **Fix it**. |
 | "Sorry, that change did not work" | 3 fixes failed | The old version is back. Ask again in other words. |
 | Lesson takes more than 3 minutes | A big lesson | Use `effort: "low"`, or ask for fewer steps. |
@@ -523,14 +527,14 @@ daytona list
 - **The whole app in local test mode**: I started it with `npm run dev`, clicked "Pythagorean theorem", and got a 5-step lesson in about 4 minutes. Its quiz asks "Set the legs so the hypotenuse is exactly 5", with two sliders and a live triangle.
 - This test found three problems, and I fixed them: the page started two sandboxes instead of one; a false "lesson crashed" warning appeared while Vite loaded new packages; and Claude's chat replies were too long.
 
-**Checked, but not run live:** all Daytona code passes the type checker against the real Daytona SDK (version 0.227.0), and `next build` passes.
+**Tested live with your Daytona key:**
 
-**Not tested (no keys):**
+- `hello-sandbox.mts`: a sandbox started, ran a command, and was deleted in **3 seconds**. The sandbox has Node 24.
+- `make-template.mts`: the snapshot `learn-template` was ready in **59 seconds**.
+- The app in cloud mode: a new sandbox from the snapshot started in about **20-30 seconds**. A "Photosynthesis" lesson (5 steps, plant visual with switches for light, water and CO₂, quiz) was built inside the sandbox in about **5 minutes** and showed in the iframe.
+- The Daytona warning page: it appears once per new sandbox (see section 6, step 6).
 
-- Real Daytona sandboxes, the snapshot, and the preview link in the iframe.
-- All Nosana steps and the Whisper route.
-
-Section 6 has a "done when" check for each Daytona step, so you find any problem early.
+**Not tested:** all Nosana steps and the Whisper route.
 
 ---
 
