@@ -17,8 +17,13 @@ function listFiles(dir: string): string[] {
 // If an old snapshot with this name exists, remove it first (needed when you run this script again).
 await daytona.snapshot.delete(SNAPSHOT).catch(() => {});
 
-console.log("1. Creating a setup sandbox...");
-const sandbox = await daytona.create({ snapshot: "daytona-medium" });
+console.log("1. Creating a setup sandbox (the first time can take a few minutes)...");
+// Daytona's default sandbox image, but small: 1 vCPU, 2 GB memory, 5 GB disk.
+// Small sandboxes leave room in your Daytona limits for your other apps.
+const sandbox = await daytona.create(
+  { image: "daytonaio/sandbox:0.11.0", resources: { cpu: 1, memory: 2, disk: 5 }, labels: { app: "learn-lab" } },
+  { timeout: 0, onSnapshotCreateLogs: (line) => console.log("   ", line.trim()) },
+);
 try {
   const node = await sandbox.process.executeCommand("node -v", undefined, undefined, 30);
   console.log("   Node in the sandbox:", node.result.trim(), "(Vite needs 20.19+ or 22.12+)");

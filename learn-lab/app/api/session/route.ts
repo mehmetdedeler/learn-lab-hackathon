@@ -11,7 +11,9 @@ export async function POST(req: Request) {
   } catch (e) {
     const message = String(e);
     console.error("[session] could not start:", message); // shows in the Terminal that runs "npm run dev"
-    const hint = /limit exceeded/i.test(message)
+    const hint = /disk limit exceeded/i.test(message)
+      ? " Delete Daytona sandboxes you do not need in the dashboard (Sandboxes). Stopped ones still use disk. Then reload this page."
+      : /limit exceeded/i.test(message)
       ? " Too many Daytona sandboxes are running. Stop old ones in the Daytona dashboard (Sandboxes), then reload this page."
       : /too many requests|rate ?limit/i.test(message)
         ? " Daytona got too many requests in a short time. Wait 1 minute, then reload this page."

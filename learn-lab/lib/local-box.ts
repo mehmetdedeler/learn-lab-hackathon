@@ -7,11 +7,12 @@ import type { Box } from "./agent";
 import { APP } from "./config";
 
 // LOCAL TEST MODE: used when DAYTONA_API_KEY is empty.
-// The "sandbox" is a folder on your laptop, and Vite runs at http://localhost:5173.
+// The "sandbox" is a folder on your laptop, and Vite runs at http://localhost:5737.
 // Claude can only write files under src/, and no shell command from Claude runs here.
 const run = promisify(execFile);
 const ROOT = path.join(os.tmpdir(), "learn-lab-local");
-const PREVIEW_URL = "http://localhost:5173";
+const PORT = 5737; // Learn Lab's own port, so it never mixes with other apps (they often use 5173)
+const PREVIEW_URL = `http://localhost:${PORT}`;
 const toLocal = (p: string) => p.split(APP).join(ROOT);
 const ok = { exitCode: 0, result: "" };
 
@@ -57,7 +58,12 @@ export const localBox: Box = {
   },
 };
 
-const isUp = () => fetch(PREVIEW_URL).then(() => true, () => false);
+// True only when Learn Lab's own lesson page answers (its title is "Learn", see template/index.html).
+const isOurs = () =>
+  fetch(PREVIEW_URL).then(
+    async (r) => (await r.text()).includes("<title>Learn</title>"),
+    () => false,
+  );
 
 // Copy the template, install packages if needed, reset the lesson, and start Vite.
 export async function startLocal() {
@@ -75,9 +81,10 @@ export async function startLocal() {
   }
   copy("src", ".last-good");
 
-  if (!(await isUp())) {
-    spawn("npm", ["run", "dev"], { cwd: ROOT, stdio: "ignore" });
-    for (let i = 0; i < 30 && !(await isUp()); i++) await new Promise((r) => setTimeout(r, 1000));
+  if (!(await isOurs())) {
+    spawn("npm", ["run", "dev", "--", "--port", String(PORT)], { cwd: ROOT, stdio: "ignore" });
+    for (let i = 0; i < 30 && !(await isOurs()); i++) await new Promise((r) => setTimeout(r, 1000));
+    if (!(await isOurs())) throw new Error(`Port ${PORT} is used by another program. Close it, then reload.`);
   }
   return { sandboxId: "local", url: PREVIEW_URL, local: true };
 }
