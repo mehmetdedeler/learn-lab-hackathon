@@ -25,9 +25,29 @@ async function startDevServer(sandbox: Sandbox) {
   return preview.url;
 }
 
-// A new sandbox for a new student session.
-export async function createSession() {
+// Get a Daytona sandbox. If it went to sleep, wake it and restart Vite.
+async function wake(sandboxId: string) {
+  const sandbox = await daytona().get(sandboxId);
+  if (sandbox.state !== "started") {
+    await sandbox.start();
+    await startDevServer(sandbox);
+  }
+  return sandbox;
+}
+
+// Start a session. If this browser already has a sandbox, use it again, so a page reload
+// does not make a new one (each sandbox uses 4 GB of the 10 GB Daytona memory limit).
+export async function createSession(previousId?: string) {
   if (localMode()) return startLocal();
+  if (previousId && previousId !== "local") {
+    try {
+      const sandbox = await wake(previousId);
+      const { url } = await sandbox.getPreviewLink(5173);
+      return { sandboxId: sandbox.id, url, local: false, reused: true };
+    } catch {
+      // The old sandbox is gone or broken, so make a new one below.
+    }
+  }
   const sandbox = await daytona().create({
     snapshot: SNAPSHOT,
     public: true,           // the iframe can show the preview without a token
@@ -36,16 +56,11 @@ export async function createSession() {
     labels: { app: "learn-lab" },
   });
   const url = await startDevServer(sandbox);
-  return { sandboxId: sandbox.id, url, local: false };
+  return { sandboxId: sandbox.id, url, local: false, reused: false };
 }
 
-// Get the sandbox again. If it went to sleep, wake it and restart Vite.
+// The sandbox for a chat message (awake and with Vite running).
 export async function getRunningSandbox(sandboxId: string) {
   if (sandboxId === "local") return localBox;
-  const sandbox = await daytona().get(sandboxId);
-  if (sandbox.state !== "started") {
-    await sandbox.start();
-    await startDevServer(sandbox);
-  }
-  return sandbox;
+  return wake(sandboxId);
 }

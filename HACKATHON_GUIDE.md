@@ -299,7 +299,7 @@ Done when: you see a lesson with tabs, a moving visual and a quiz.
 
 - **Auto-stop.** A sandbox goes to sleep after 30 minutes without activity (we set this in `lib/sandbox.ts`). The running Vite server does not count as activity. When a sleeping sandbox gets a new message, the code wakes it and starts Vite again.
 - **Auto-delete.** A sandbox is deleted 60 minutes after it stops. This keeps your credits safe.
-- **Limits.** A new account can run about 10 vCPU (virtual processors) at the same time. Each page load starts a new sandbox. Therefore, if you refresh the page many times, you can hit the limit. Delete old sandboxes in the dashboard (**Sandboxes**), or use the CLI (section 11).
+- **Limits.** Your account can run 10 GB of memory at the same time, and each Learn Lab sandbox uses 4 GB. So about two sandboxes fit at once. Your browser remembers its sandbox, so a page reload uses the same sandbox again and shows "Welcome back". Other browsers (or a private window) get their own sandbox. If you still hit the limit, stop old sandboxes in the dashboard (**Sandboxes**), or use the CLI (section 11).
 - **Public preview.** We use `public: true`, so anyone with the preview link can see the lesson. That is fine for a hackathon.
 - **Price.** About $0.05 per vCPU-hour and $0.016 per GB of memory per hour, billed per second. A stopped sandbox pays only for its disk.
 
@@ -491,7 +491,8 @@ One risk: building a lesson takes 1-3 minutes. Free hosting plans may stop long 
 | Right side stays on "Starting your sandbox…" for more than 2 minutes (local test mode) | Port 3000 or 5173 is used by another program | Close other Terminal windows that run `npm run dev`, then start again. |
 | "Could not start the sandbox… credentials not found" | No Daytona key | Put `DAYTONA_API_KEY` in `.env.local`, then restart `npm run dev`. |
 | "Snapshot learn-template not found" | Step 5 was not done | Run `make-template.mts`. |
-| Error about quota or resources | Too many sandboxes are running | Delete old sandboxes in the dashboard. |
+| "Total memory limit exceeded. Maximum allowed: 10GiB" | Too many sandboxes are running. Each Learn Lab sandbox uses 4 GB, and your account allows 10 GB in total. | In the Daytona dashboard, open **Sandboxes** and stop the old ones. Then reload the page. |
+| "DaytonaRateLimitError: Too Many Requests" | Too many Daytona API calls in a short time | Wait 1 minute, then reload the page. |
 | Iframe shows a Daytona "Preview URL Warning" page | Daytona's first-visit warning, once per new sandbox | Click **I Understand, Continue** once. |
 | Iframe is blank, and your page shows "The lesson crashed" | A mistake in the lesson | Click **Fix it**. |
 | "Sorry, that change did not work" | 3 fixes failed | The old version is back. Ask again in other words. |
