@@ -11,14 +11,14 @@ function lev(a,b){const m=[];for(let i=0;i<=a.length;i++){m[i]=[i];}for(let j=1;
 const KEY='bruno.app.v1';
 const fresh=()=>({
   screen:'splash',tab:'learn',overlay:null,ov:null,
-  user:{name:'',level:'new',goal:10,commit:5,outfit:{scarf:'#43C0F6',hat:'none',glasses:false},owned:{},notif:true},
+  user:{setup:false,name:'',level:'new',goal:10,commit:5,outfit:{scarf:'#43C0F6',hat:'none',glasses:false},owned:{},notif:true},
   topic:TOPIC,started:false,day:0,lastActive:-1,
   mastery:{},knew:{},srs:{},mistakes:[],
   xp:0,gems:50,streak:0,freezes:1,boost:false,todayXp:0,week:[0,0,0,0,0,0,0],weekIdx:0,doneToday:0,
   stats:{},conf:{sure:[0,0],unsure:[0,0]},
   quests:{claimed:{},review:0,bestCombo:0,teach:0},badges:{},chestOpen:{},
   settings:{sound:true,haptics:true,voice:true,reminders:true},
-  hint:'',sess:null,vis:null,buildErr:''
+  hint:'',sess:null,events:[],vis:null,buildErr:'',pendingTopic:'',visSeen:false,afterVisual:''
 });
 let S=fresh();
 function load(){try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.v===1){const f=fresh(),sv=j.s||{};for(const k in sv){const d=f[k];if(sv[k]===null||sv[k]===undefined||(d!==undefined&&(typeof d!==typeof sv[k]||Array.isArray(d)!==Array.isArray(sv[k]))))delete sv[k]}
@@ -54,43 +54,59 @@ let VOICE=null;
 function pickVoice(){const vs=speechSynthesis.getVoices();VOICE=vs.find(v=>/Samantha|Google US English|Aria|Jenny|Karen|Moira/i.test(v.name))||vs.find(v=>/^en/i.test(v.lang))||null}
 if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
 function mouth(on){$$('.bruno').forEach(b=>b.classList.toggle('talking',on))}
-function sayBrowser(text,{onend}={}){
-  if(!('speechSynthesis' in window)){mouth(true);setTimeout(()=>{mouth(false);onend&&onend()},Math.min(4000,text.length*55));return}
+function say(text,{force=false,onend}={}){
+  const browserTTS=()=>{
+  if(!('speechSynthesis' in window)||(!S.settings.voice&&!force)){mouth(true);setTimeout(()=>{mouth(false);onend&&onend()},Math.min(4000,text.length*55));return}
   try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);if(VOICE)u.voice=VOICE;u.rate=1.02;u.pitch=1.15;
     u.onstart=()=>mouth(true);u.onend=u.onerror=()=>{mouth(false);onend&&onend()};speechSynthesis.speak(u)}
-  catch(e){mouth(false)}}
-/* Bruno's real voice comes from ElevenLabs (POST /api/tts). Each sentence is fetched once and cached.
-   If the voice service fails, Bruno falls back to the browser's own voice. */
-let AUD=null,SAYING=null;const TTS_CACHE=new Map();
-function say(text,{force=false,onend}={}){
-  if(!S.settings.voice&&!force){mouth(true);setTimeout(()=>{mouth(false);onend&&onend()},Math.min(4000,text.length*55));return}
-  hush();const me={};SAYING=me;
-  let p=TTS_CACHE.get(text);
-  if(!p){p=fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-    .then(r=>{if(!r.ok)throw new Error('voice');return r.blob()}).then(b=>URL.createObjectURL(b));TTS_CACHE.set(text,p)}
-  p.then(u=>{if(SAYING!==me)return;AUD=new Audio(u);AUD.onplay=()=>mouth(true);AUD.onended=AUD.onerror=()=>{mouth(false);onend&&onend()};return AUD.play()})
-   .catch(()=>{TTS_CACHE.delete(text);if(SAYING===me)sayBrowser(text,{onend})})}
-const hush=()=>{SAYING=null;try{if(AUD){AUD.pause();AUD=null}}catch(e){}try{speechSynthesis.cancel()}catch(e){}mouth(false)};
+  catch(e){mouth(false)}};
+  if(typeof API!=='undefined'&&API.configuredSpeech()&&(S.settings.voice||force)){
+    try{speechSynthesis.cancel()}catch(e){}
+    API.speak(text,{onend}).then(ok=>{if(!ok)browserTTS()},()=>browserTTS());return}
+  browserTTS()}
+const hush=()=>{try{speechSynthesis.cancel()}catch(e){}try{typeof API!=='undefined'&&API.stop()}catch(e){}mouth(false)};
 function listenOnce(cb,fail){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){fail&&fail('unsupported');return}
   try{const r=new SR();r.lang='en-US';r.interimResults=false;r.onresult=e=>cb(e.results[0][0].transcript);r.onerror=()=>fail&&fail('error');r.onend=()=>{};r.start();return r}catch(e){fail&&fail('error')}}
 
-/* ---------- spaced repetition (simplified FSRS-style: difficulty ignored, stability + retrievability) ---------- */
-const retr=c=>Math.pow(0.9,(S.day-c.last)/Math.max(.3,c.S));               // 90% recall exactly when S days have passed
+/* ---------- spaced repetition: FSRS-4.5 (difficulty D, stability S, retrievability R), target retention 0.9 ---------- */
+const FSRS_W=[0.5701,1.4436,4.1386,10.9355,5.1443,1.2006,0.8627,0.0362,1.629,0.1342,1.0166,2.1174,0.0839,0.3204,1.4676,0.219,2.8237];
+const FSRS_RET=0.9,FSRS_F=19/81;
+const fsrsG=r=>r===0?1:r===2?4:3;                                            // app rating 0/1/2 -> FSRS again/good/easy
+const clampD=d=>Math.min(10,Math.max(1,d));
+const fsrsD0=g=>clampD(FSRS_W[4]-FSRS_W[5]*(g-3));
+const retr=c=>Math.pow(1+FSRS_F*Math.max(0,S.day-c.last)/Math.max(.3,c.S),-.5);   // exactly 0.9 when t==S
 const cardState=id=>S.srs[id];
 const isDue=c=>S.day>=c.due;
 const strengthDots=c=>Math.max(0,Math.min(5,Math.ceil(retr(c)*5)));
-function nextInterval(c,rating){const R=c?retr(c):1,s=c?c.S:.5;if(rating===0)return 1;const ns=rating===2?s*3+.5*(1-R):s*2.2+.5*(1-R);return Math.max(1,Math.round(ns))}
+function fsrsNext(c,rating){                                                  // pure: returns {S,d,lapse}
+  const W=FSRS_W,g=fsrsG(rating);
+  if(!c||!(c.reps>0))return{S:W[g-1],d:fsrsD0(g),lapse:false};                // first real review
+  const D=clampD(typeof c.d==='number'&&isFinite(c.d)?c.d:fsrsD0(3)),s=Math.max(.3,c.S),R=retr(c);
+  const d=clampD(W[7]*fsrsD0(3)+(1-W[7])*(D-W[6]*(g-3)));
+  if(g===1){const sf=W[11]*Math.pow(D,-W[12])*(Math.pow(s+1,W[13])-1)*Math.exp(W[14]*(1-R));
+    return{S:Math.max(.4,Math.min(s,sf)),d,lapse:true}}
+  const k=Math.exp(W[8])*(11-D)*Math.pow(s,-W[9])*(Math.exp(W[10]*(1-R))-1)*(g===4?W[16]:1);
+  return{S:s*(1+k),d,lapse:false}}
+const fsrsIvl=(ns,lapse)=>lapse?1:Math.max(1,Math.round(ns/FSRS_F*(Math.pow(FSRS_RET,-2)-1)));
+function nextInterval(c,rating){const n=fsrsNext(c,rating);return fsrsIvl(n.S,n.lapse)}
 function srsReview(id,rating){
-  let c=S.srs[id];if(!c)c=S.srs[id]={S:.5,last:S.day,due:S.day,reps:0,lapses:0};
-  const R=retr(c);
-  if(rating===0){c.S=Math.max(.4,c.S*.4);c.lapses++;c.due=S.day+1}
-  else{c.S=rating===2?c.S*3+.5*(1-R):c.S*2.2+.5*(1-R);c.due=S.day+Math.max(1,Math.round(c.S))}
+  let c=S.srs[id];if(!c)c=S.srs[id]={S:FSRS_W[0],last:S.day,due:S.day,reps:0,lapses:0};
+  const n=fsrsNext(c,rating);
+  c.S=n.S;c.d=n.d;if(n.lapse)c.lapses++;c.due=S.day+fsrsIvl(n.S,n.lapse);
   c.last=S.day;c.reps++;save()}
-function enrollCards(cid){C.find(c=>c.id===cid).cards.forEach(k=>{if(!S.srs[k.id])S.srs[k.id]={S:.5,last:S.day,due:S.day+1,reps:0,lapses:0}})}
+function enrollCards(cid){C.find(c=>c.id===cid).cards.forEach(k=>{if(!S.srs[k.id])S.srs[k.id]={S:FSRS_W[0],d:fsrsD0(3),last:S.day,due:S.day+1,reps:0,lapses:0}})}
 const dueCards=()=>Object.entries(S.srs).filter(([id,c])=>isDue(c)).sort((a,b)=>retr(a[1])-retr(b[1])).map(([id])=>cardById(id)).filter(Boolean);
 const nextDueIn=()=>{const l=Object.values(S.srs).filter(c=>!isDue(c)).map(c=>c.due-S.day);return l.length?Math.min(...l):null};
+
+/* ---------- analytics (persisted in S.events, capped) ---------- */
+function track(name,props){if(!Array.isArray(S.events))S.events=[];S.events.push({t:Date.now(),day:S.day,name,props:props||{}});if(S.events.length>300)S.events.splice(0,S.events.length-300);save()}
+function eventSummary(){const m={};
+  for(const e of (S.events||[])){const p=e.props||{},k=p.kind;if(!k||typeof p.correct==='undefined')continue;
+    const o=m[k]||(m[k]={kind:k,n:0,ok:0,ms:0,nms:0});o.n++;if(p.correct)o.ok++;
+    const t=p.ms!=null?p.ms:p.rt;if(typeof t==='number'&&isFinite(t)){o.ms+=t;o.nms++}}
+  return Object.values(m).map(o=>({kind:o.kind,n:o.n,accuracy:o.n?o.ok/o.n:0,avgMs:o.nms?Math.round(o.ms/o.nms):null}))}
 
 /* ---------- quests, badges, streak, day clock ---------- */
 const QUESTS=()=>[

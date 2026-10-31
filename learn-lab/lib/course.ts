@@ -25,6 +25,8 @@ const Item = z.object({
 
 const Course = z.object({
   topic: z.string(),
+  emoji: z.string(), // one emoji for the whole topic
+  blurb: z.string(), // one short sentence about the topic
   concepts: z.array(
     z.object({
       name: z.string(),
@@ -39,6 +41,7 @@ const Course = z.object({
 
 const PROMPT = (topic: string, level: string) => `Make a short course about "${topic}" for a learner who says: "${level}".
 
+Also give the topic one emoji and a blurb (one short sentence that says what the learner will understand).
 Write 4 concepts in teaching order, from the basics to the main idea. For each concept:
 - name: at most 4 words. emoji: one emoji that pictures it. icon: the closest of sun, cell, leaf, drop, cube, cycle.
 - body: 2 short, plain sentences that teach it.
@@ -106,21 +109,24 @@ function checkItem(it: RawItem): Record<string, unknown> | null {
   return null;
 }
 
-// Turn the model's answer into Bruno's content format: {topic, concepts}.
+// Turn the model's answer into Bruno's topic format: {id, name, emoji, blurb, concepts}.
+// Ids carry the topic id, because Bruno keeps progress for several topics side by side.
 function toBruno(raw: RawCourse, topic: string) {
+  const slug = (clean(raw.topic) || topic).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "topic";
+  const id = `gen-${slug}-${Date.now().toString(36)}`;
   const concepts = raw.concepts
     .map((c, i) => {
       const pool = c.pool.map(checkItem).filter((x): x is Record<string, unknown> => x !== null);
       const first = pool.findIndex((x) => x.k === "mc"); // the Q&A quiz uses the first question, so it must be "mc"
       if (first < 0) return null;
       pool.unshift(...pool.splice(first, 1));
-      const cards = c.cards.map((k, j) => ({ id: `c${i}k${j}`, f: clean(k.f), b: clean(k.b) })).filter((k) => k.f && k.b);
+      const cards = c.cards.map((k, j) => ({ id: `${id}-c${i}k${j}`, f: clean(k.f), b: clean(k.b) })).filter((k) => k.f && k.b);
       if (pool.length < 2 || !cards.length) return null;
-      return { id: `c${i}`, name: clean(c.name), icon: c.icon, emoji: clean(c.emoji) || "💡", body: clean(c.body), cards, pool };
+      return { id: `${id}-c${i}`, name: clean(c.name), icon: c.icon, emoji: clean(c.emoji) || "💡", body: clean(c.body), cards, pool };
     })
     .filter((c) => c !== null);
   if (concepts.length < 2) throw new Error("The course came out too small. Please try again.");
-  return { topic: clean(raw.topic) || topic, concepts };
+  return { id, name: clean(raw.topic) || topic, emoji: clean(raw.emoji) || "📘", blurb: clean(raw.blurb), concepts };
 }
 
 // One LLM call: topic in, a full Bruno course out.

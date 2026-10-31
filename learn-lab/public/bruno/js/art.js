@@ -21,6 +21,33 @@ const OPT={
  stem:`<svg viewBox="0 0 100 80"><rect x="42" y="4" width="16" height="72" rx="8" fill="#46A302"/></svg>`
 };
 
+
+/* ---- art for the extra topics (French Revolution, Python) ---- */
+const _plate=(body,cap)=>`<svg viewBox="0 0 240 130">${body}<text x="120" y="124" text-anchor="middle" font-size="12" fill="#1899D6">${cap}</text></svg>`;
+const _code=(lines,cap)=>_plate(`<rect x="30" y="8" width="180" height="94" rx="12" fill="#2B3A4A"/><g font-family="monospace" font-size="13" fill="#fff">${lines.map((l,i)=>`<text x="44" y="${32+i*22}">${l}</text>`).join('')}</g>`,cap);
+const _est=(x,col,lab)=>`<rect x="${x}" y="30" width="62" height="64" rx="12" fill="#fff" stroke="${col}" stroke-width="4"/><text x="${x+31}" y="68" text-anchor="middle" font-size="12" fill="${col}">${lab}</text>`;
+Object.assign(ART,{
+fr_old:_plate(_est(14,'#1CB0F6','1st')+_est(89,'#CE82FF','2nd')+_est(164,'#FF9600','3rd')+'<text x="45" y="20" text-anchor="middle" font-size="10" fill="#777">clergy</text><text x="120" y="20" text-anchor="middle" font-size="10" fill="#777">nobility</text><text x="195" y="20" text-anchor="middle" font-size="10" fill="#777">commoners</text>','the three Estates'),
+fr_sts:_plate('<path d="M30 100V50l22-16 22 16v50zM46 100V74h12v26" fill="#fff" stroke="#AFAFAF" stroke-width="4" stroke-linejoin="round"/><path d="M96 92l26-52 26 52z" fill="#fff" stroke="#FFC800" stroke-width="4" stroke-linejoin="round"/><circle cx="196" cy="62" r="24" fill="#fff" stroke="#FF4B4B" stroke-width="4"/><text x="196" y="67" text-anchor="middle" font-size="13" fill="#FF4B4B">14 Jul</text>','Assembly, oath, Bastille'),
+fr_rights:_plate('<rect x="28" y="16" width="54" height="80" rx="4" fill="#1CB0F6"/><rect x="82" y="16" width="54" height="80" fill="#fff" stroke="#E5E5E5" stroke-width="2"/><rect x="136" y="16" width="54" height="80" rx="4" fill="#FF4B4B"/><text x="210" y="60" text-anchor="middle" font-size="22" fill="#FFC800">1789</text>','the tricolour'),
+fr_fall:_plate('<path d="M70 94l8-46h44l8 46z" fill="#FFC800" stroke="#D9A500" stroke-width="3" stroke-linejoin="round"/><path d="M70 48l12 14 14-24 14 24 12-14" fill="none" stroke="#D9A500" stroke-width="3" stroke-linejoin="round"/><path d="M160 90l30-34M190 90l-30-34" stroke="#FF4B4B" stroke-width="6" stroke-linecap="round"/><text x="175" y="26" text-anchor="middle" font-size="12" fill="#777">1792-93</text>','the crown falls'),
+fr_terror:_plate('<rect x="86" y="14" width="10" height="82" rx="3" fill="#B07A4E"/><rect x="144" y="14" width="10" height="82" rx="3" fill="#B07A4E"/><rect x="80" y="12" width="80" height="10" rx="3" fill="#B07A4E"/><path d="M104 34h32l-4 24h-24z" fill="#AFAFAF" stroke="#777" stroke-width="3" stroke-linejoin="round"/><rect x="70" y="94" width="100" height="8" rx="3" fill="#E5E5E5"/>','1793-94'),
+fr_nap:_plate('<path d="M70 70c0-30 20-44 50-44s50 14 50 44c-14-6-26-8-50-8s-36 2-50 8z" fill="#2B3A4A"/><path d="M82 70h76v16H82z" fill="#FFC800"/><circle cx="120" cy="22" r="6" fill="#FFC800"/><text x="120" y="82" text-anchor="middle" font-size="11" fill="#2B3A4A">1804</text>','Napoleon, Emperor'),
+py_var:_code(['age = 12','name = "Ada"','print(age)'],'a variable stores a value'),
+py_types:_code(['5 &nbsp;&nbsp;&nbsp;&nbsp;# int','2.5 &nbsp;&nbsp;# float','"hi" &nbsp;# str','True # bool'],'four basic types'),
+py_ops:_code(['10 // 3 # 3','10 % 3 &nbsp;# 1','2 ** 5 &nbsp;# 32'],'operators'),
+py_for:_code(['for i in range(3):','&nbsp;&nbsp;print(i)','# 0 1 2'],'repeat with for'),
+py_while:_code(['count = 0','while count != 3:','&nbsp;&nbsp;count = count + 1'],'repeat with while'),
+py_acc:_code(['total = 0','for n in [3, 5, 7]:','&nbsp;&nbsp;total = total + n'],'add up as you loop')
+});
+const _flag=(a,b,c)=>`<svg viewBox="0 0 100 80"><rect x="12" y="14" width="25" height="52" fill="${a}"/><rect x="37" y="14" width="26" height="52" fill="${b}" stroke="#E5E5E5" stroke-width="1"/><rect x="63" y="14" width="25" height="52" fill="${c}"/></svg>`;
+Object.assign(OPT,{
+ flag_fr:_flag('#1F4FBF','#fff','#E03A3A'),
+ flag_it:_flag('#2E9B3E','#fff','#E03A3A'),
+ flag_de:_flag('#222','#E03A3A','#FFC800'),
+ flag_pl:`<svg viewBox="0 0 100 80"><rect x="12" y="14" width="76" height="26" fill="#fff" stroke="#E5E5E5" stroke-width="1"/><rect x="12" y="40" width="76" height="26" fill="#E03A3A"/></svg>`
+});
+
 /* plant cell with tappable parts: used by "tap the part" exercises */
 function cellArt(sel,locked){
  const hs=(n,svg)=>`<g class="hs ${sel===n?'sel':''}" data-act="hot" data-spot="${n}" ${locked?'style="pointer-events:none"':''}>${svg}</g>`;
@@ -32,5 +59,5 @@ function cellArt(sel,locked){
   ${hs('Chloroplast','<g transform="rotate(15 80 140)"><ellipse cx="80" cy="140" rx="24" ry="13" fill="#58CC02" stroke="#46A302" stroke-width="3"/><path d="M66 140h28M69 134h22" stroke="#46A302" stroke-width="2.5" stroke-linecap="round"/></g>')}
  </svg>`}
 
-/* concept picture: hand-drawn art for the demo topic, a big emoji for generated topics */
+/* Learn Lab: hand-drawn art when it exists, else the concept's emoji (generated topics) */
 const artFor=c=>ART[c.art]||`<div class="emoji-art">${esc(c.emoji||'💡')}</div>`;

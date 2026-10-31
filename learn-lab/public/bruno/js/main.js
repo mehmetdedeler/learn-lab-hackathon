@@ -16,6 +16,17 @@ document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const id=e.tar
 
 /* ---------- boot ---------- */
 load();syncOutfit();
-if(['lesson','result','building','call','rapidIntro'].includes(S.screen))S.screen=S.started?'home':'splash';
-if(S.started&&['splash','name','topic','level','goal','commit'].includes(S.screen))S.screen='home';
+if(['lesson','result','building','call','rapidIntro','reveal'].includes(S.screen))S.screen=S.started?'home':'splash';
+if(S.started&&['splash','name','topic','level','goal','commit','reveal'].includes(S.screen))S.screen='home';
 render();
+
+/* in-app reminder when OS alerts are off or unsupported: one gentle toast per visit */
+if(S.started&&S.screen==='home'&&S.settings.reminders&&S.streak>0&&S.lastActive!==S.day&&!(typeof Notification!=='undefined'&&Notification.permission==='granted'))
+  setTimeout(()=>{if(S.screen==='home')toast('Your '+S.streak+'-day streak is waiting. One quick lesson keeps it.')},900);
+
+/* PWA: register the app-shell service worker only on real http(s) origins (not file://, not sandboxed frames) */
+try{
+  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&location.origin!=='null'){
+    window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
+  }
+}catch(e){}
